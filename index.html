@@ -721,43 +721,21 @@ setRealViewportHeight();
 window.addEventListener('resize', setRealViewportHeight);
 window.addEventListener('orientationchange', function(){ setTimeout(setRealViewportHeight, 250); });
 
-// --- BGM (iOS Safari 호환: AudioContext + fetch) ---
-let bgmSource = null;
-let bgmBuffer = null;
-let bgmCtx = null;
-let bgmLoaded = false;
-
-async function bgmInit() {
-  if (bgmLoaded) return;
-  try {
-    bgmCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const res = await fetch('https://soundimage.org/wp-content/uploads/2017/03/8-Bit-Techno.mp3');
-    const arr = await res.arrayBuffer();
-    bgmBuffer = await bgmCtx.decodeAudioData(arr);
-    bgmLoaded = true;
-  } catch(e) { console.warn('BGM load fail', e); }
-}
+// --- BGM ---
+const bgm = new Audio();
+bgm.src = 'https://soundimage.org/wp-content/uploads/2017/03/8-Bit-Techno.mp3';
+bgm.loop = true;
+bgm.volume = 0.45;
+bgm.preload = 'auto';
 
 function bgmPlay() {
-  if (!bgmLoaded || !bgmCtx) return;
-  if (bgmSource) { try { bgmSource.stop(); } catch(e) {} }
-  if (bgmCtx.state === 'suspended') bgmCtx.resume();
-  bgmSource = bgmCtx.createBufferSource();
-  bgmSource.buffer = bgmBuffer;
-  bgmSource.loop = true;
-  const gain = bgmCtx.createGain();
-  gain.gain.value = 0.45;
-  bgmSource.connect(gain);
-  gain.connect(bgmCtx.destination);
-  bgmSource.start(0);
+  const p = bgm.play();
+  if (p && p.catch) p.catch(() => {});
 }
-
 function bgmStop() {
-  if (bgmSource) { try { bgmSource.stop(); } catch(e) {} bgmSource = null; }
+  bgm.pause();
+  bgm.currentTime = 0;
 }
-
-// 페이지 로드 시 미리 로딩 시작
-bgmInit();
 
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
@@ -1656,7 +1634,16 @@ function drawScore() {
 }
 
 // --- Main Loop ---
-function loop() {
+let lastTime = 0;
+const TARGET_FPS = 60;
+const TARGET_FRAME = 1000 / TARGET_FPS;
+
+function loop(timestamp) {
+  // delta: 실제 프레임 간격을 60fps 기준으로 정규화 (0.5~2.0 범위 clamp)
+  const rawDelta = lastTime ? (timestamp - lastTime) / TARGET_FRAME : 1;
+  const delta = Math.min(Math.max(rawDelta, 0.5), 2.0);
+  lastTime = timestamp;
+
   ctx.clearRect(0, 0, W, H);
 
   // Background
@@ -1665,16 +1652,16 @@ function loop() {
   if (state === 'playing' || state === 'dead') {
     // Physics
     if (state === 'playing') {
-      dot.vy += GRAVITY;
+      dot.vy += GRAVITY * delta;
       if (dot.vy > MAX_FALL) dot.vy = MAX_FALL;
-      dot.y += dot.vy;
+      dot.y += dot.vy * delta;
 
       // Trail
       trail.push({x: dot.x, y: dot.y});
       if (trail.length > 12) trail.shift();
 
       // Wall spawn
-      wallTimer++;
+      wallTimer += delta;
       const d = getDifficulty();
       if (wallTimer >= d.spawnInterval) {
         wallTimer = 0;
@@ -1682,9 +1669,9 @@ function loop() {
       }
 
       // Move walls / pattern update
-      speed += (d.targetSpeed - speed) * 0.025;
+      speed += (d.targetSpeed - speed) * 0.025 * delta;
       walls.forEach(w => {
-        w.x -= speed;
+        w.x -= speed * delta;
         if (w.type === 'moving') {
           const gapCenter = w.baseGapY + w.gap / 2 + Math.sin((performance.now() / 420) + w.phase) * w.amp;
           const topLimit = 82 + w.gap / 2;
@@ -1717,7 +1704,7 @@ function loop() {
         }
       }
       if (coffeeItem && !coffeeItem.collected) {
-        coffeeItem.x -= speed;
+        coffeeItem.x -= speed * delta;
         // 충돌 판정
         const dx = dot.x - coffeeItem.x;
         const dy = dot.y - coffeeItem.y;
@@ -1771,15 +1758,15 @@ function loop() {
   if (state === 'title') {
     // 벽 자동 이동
     const demoSpeed = 1.8;
-    walls.forEach(w => { w.x -= demoSpeed; });
+    walls.forEach(w => { w.x -= demoSpeed * delta; });
     walls = walls.filter(w => w.x > -WALL_W - 10);
-    wallTimer++;
+    wallTimer += delta;
     if (wallTimer >= 80) { wallTimer = 0; spawnWall(); }
 
     // 데모 캐릭터 자동 점프 (화면 중간 유지)
-    dot.vy += GRAVITY * 0.7;
+    dot.vy += GRAVITY * 0.7 * delta;
     if (dot.vy > MAX_FALL) dot.vy = MAX_FALL;
-    dot.y += dot.vy;
+    dot.y += dot.vy * delta;
     if (dot.y > H * 0.62) dot.vy = JUMP * 0.85;
     if (dot.y < H * 0.2) dot.vy = Math.abs(dot.vy) * 0.5;
     trail.push({x: dot.x, y: dot.y});
@@ -1794,7 +1781,7 @@ function loop() {
 
 // Start loop
 showScreen('title-screen');
-loop();
+requestAnimationFrame(loop);
 </script>
 </body>
 </html>
