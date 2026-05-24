@@ -612,7 +612,7 @@
     <div class="best-box">
       <div class="best-label">BEST</div>
       <div class="best-value" id="best-display-hud">0</div>
-      <div id="coffee-hud" style="font-size:18px;margin-top:2px;display:none;" title="아메리카노 부활권">☕</div>
+      <div id="coffee-hud" style="font-size:11px;letter-spacing:1px;color:#f59e0b;margin-top:3px;font-weight:700;display:none;">COFFEE+1</div>
     </div>
   </div>
 
@@ -721,18 +721,43 @@ setRealViewportHeight();
 window.addEventListener('resize', setRealViewportHeight);
 window.addEventListener('orientationchange', function(){ setTimeout(setRealViewportHeight, 250); });
 
-// --- BGM ---
-const bgm = new Audio('https://soundimage.org/wp-content/uploads/2017/03/8-Bit-Techno.mp3');
-bgm.loop = true;
-bgm.volume = 0.45;
+// --- BGM (iOS Safari 호환: AudioContext + fetch) ---
+let bgmSource = null;
+let bgmBuffer = null;
+let bgmCtx = null;
+let bgmLoaded = false;
+
+async function bgmInit() {
+  if (bgmLoaded) return;
+  try {
+    bgmCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const res = await fetch('https://soundimage.org/wp-content/uploads/2017/03/8-Bit-Techno.mp3');
+    const arr = await res.arrayBuffer();
+    bgmBuffer = await bgmCtx.decodeAudioData(arr);
+    bgmLoaded = true;
+  } catch(e) { console.warn('BGM load fail', e); }
+}
 
 function bgmPlay() {
-  if (bgm.paused) bgm.play().catch(() => {});
+  if (!bgmLoaded || !bgmCtx) return;
+  if (bgmSource) { try { bgmSource.stop(); } catch(e) {} }
+  if (bgmCtx.state === 'suspended') bgmCtx.resume();
+  bgmSource = bgmCtx.createBufferSource();
+  bgmSource.buffer = bgmBuffer;
+  bgmSource.loop = true;
+  const gain = bgmCtx.createGain();
+  gain.gain.value = 0.45;
+  bgmSource.connect(gain);
+  gain.connect(bgmCtx.destination);
+  bgmSource.start(0);
 }
+
 function bgmStop() {
-  bgm.pause();
-  bgm.currentTime = 0;
+  if (bgmSource) { try { bgmSource.stop(); } catch(e) {} bgmSource = null; }
 }
+
+// 페이지 로드 시 미리 로딩 시작
+bgmInit();
 
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
@@ -1535,11 +1560,18 @@ function drawCoffeeItem() {
   ctx.roundRect(cx - 11, cy - 10, 22, 6, 3);
   ctx.fill();
 
-  // ☕ 이모지 위에 크게
-  ctx.font = 'bold 18px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('☕', cx, cy - 22);
+  // 커피잔 아이콘 (이모지 대신 직접 그리기 - iOS 호환)
+  // 김이 모락모락
+  ctx.strokeStyle = 'rgba(180,180,180,0.7)';
+  ctx.lineWidth = 1.5;
+  const steamT = performance.now() / 400;
+  for (let i = 0; i < 3; i++) {
+    const sx = cx - 5 + i * 5;
+    ctx.beginPath();
+    ctx.moveTo(sx, cy - 14);
+    ctx.bezierCurveTo(sx + 3, cy - 18, sx - 3, cy - 22, sx, cy - 26 + Math.sin(steamT + i) * 2);
+    ctx.stroke();
+  }
 
   // 반짝이 효과
   if (Math.sin(t * 4) > 0.6) {
@@ -1556,7 +1588,7 @@ function showCoffeeBanner() {
   const banner = document.getElementById('levelup-banner');
   const nameEl = document.getElementById('levelup-name');
   const titleEl = document.getElementById('levelup-title');
-  titleEl.textContent = '☕ 아메리카노 획득!';
+  titleEl.textContent = '아메리카노 획득!';
   titleEl.style.color = '#f59e0b';
   nameEl.textContent = '한 번 더 살아납니다!';
   nameEl.style.color = '#fbbf24';
@@ -1602,10 +1634,10 @@ function drawScore() {
     ctx.fillStyle = coffeeEffect % 8 < 4 ? '#fbbf24' : '#ffffff';
     ctx.fillText('카페인 충전!!!', 0, 0);
 
-    // ☕ 이모지 위아래
-    ctx.font = `${28 + Math.sin(coffeeEffect * 0.4) * 4}px sans-serif`;
-    ctx.fillText('☕', -90, 0);
-    ctx.fillText('☕', 90, 0);
+    // 좌우 커피잔 심볼 (이모지 대신 원으로)
+    ctx.fillStyle = coffeeEffect % 8 < 4 ? '#fbbf24' : '#ffffff';
+    ctx.beginPath(); ctx.arc(-88, 0, 10 + Math.sin(coffeeEffect * 0.4) * 2, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(88, 0, 10 + Math.sin(coffeeEffect * 0.4) * 2, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
 
     // 가장자리 빨간 테두리 글로우
