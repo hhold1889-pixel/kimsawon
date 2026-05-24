@@ -722,32 +722,18 @@ window.addEventListener('resize', setRealViewportHeight);
 window.addEventListener('orientationchange', function(){ setTimeout(setRealViewportHeight, 250); });
 
 // --- BGM ---
-// BGM: mp3 파일을 GitHub repo에 넣고 상대경로 사용 권장
-// 파일을 같은 폴더에 bgm.mp3로 올리면 src='bgm.mp3' 로 변경하세요
-const bgm = new Audio();
+// BGM - iOS Safari 호환 (터치 이벤트 내에서 즉시 play 호출)
+const bgm = new Audio('bgm.mp3');
 bgm.loop = true;
 bgm.volume = 0.5;
 bgm.preload = 'auto';
 
-const BGM_URLS = [
-  'bgm.mp3',  // GitHub repo에 직접 올린 파일 (최우선)
-  'https://soundimage.org/wp-content/uploads/2017/03/8-Bit-Techno.mp3'
-];
-
-(function loadBgm(idx) {
-  if (idx >= BGM_URLS.length) return;
-  bgm.src = BGM_URLS[idx];
-  bgm.onerror = () => loadBgm(idx + 1);
-})( 0);
+let bgmUnlocked = false;
 
 function bgmPlay() {
-  if (bgm.readyState < 2) {
-    bgm.addEventListener('canplaythrough', () => {
-      bgm.play().catch(() => {});
-    }, { once: true });
-  } else {
-    bgm.play().catch(() => {});
-  }
+  // iOS: 터치 컨텍스트 안에서 즉시 play() 해야 함
+  bgm.play().catch(() => {});
+  bgmUnlocked = true;
 }
 function bgmStop() {
   bgm.pause();
@@ -866,6 +852,14 @@ function fireInput(e) {
 }
 
 gameWrapper.addEventListener('pointerdown', fireInput, { passive: false });
+
+// iOS 오디오 unlock: 첫 터치 시 bgm을 잠깐 play→pause로 unlock
+document.addEventListener('pointerdown', function unlockAudio() {
+  bgm.play().then(() => {
+    if (!bgmUnlocked) bgm.pause(); // 아직 START 안 눌렀으면 바로 멈춤
+  }).catch(() => {});
+  document.removeEventListener('pointerdown', unlockAudio);
+}, { once: true });
 document.addEventListener('keydown', e => { if (e.code === 'Space') fireInput(e); });
 
 // iOS Safari에서 화면 드래그/핀치로 게임이 밀리는 현상 방지
