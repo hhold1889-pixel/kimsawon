@@ -1,0 +1,1557 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>김사원의 출근길 - Speed Up</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@300;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #f4f7fb;
+    --accent: #2563eb;
+    --danger: #ef4444;
+    --gold: #f59e0b;
+    --muted: #d8e0ec;
+    --text: #1f2937;
+  }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overscroll-behavior: none;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    min-height: 100svh;
+    min-height: 100dvh;
+    overflow: hidden;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+
+  #game-wrapper {
+    position: relative;
+    width: min(100vw, calc((var(--vh, 1vh) * 100 - env(safe-area-inset-top) - env(safe-area-inset-bottom)) * 0.5625));
+    height: min(calc(var(--vh, 1vh) * 100), calc(100vw * 1.7777778));
+    width: min(100vw, calc((100svh - env(safe-area-inset-top) - env(safe-area-inset-bottom)) * 0.5625));
+    width: min(100vw, calc((100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom)) * 0.5625));
+    height: min(100svh, calc(100vw * 1.7777778));
+    height: min(100dvh, calc(100vw * 1.7777778));
+    max-width: 430px;
+    max-height: 932px;
+    aspect-ratio: 9 / 16;
+    overflow: hidden;
+    border-radius: clamp(0px, 4vw, 24px);
+    box-shadow: 0 20px 70px rgba(37,99,235,0.18), 0 0 120px rgba(15,23,42,0.08);
+    border: 1px solid rgba(37,99,235,0.18);
+    background: var(--bg);
+    touch-action: none;
+  }
+
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: var(--bg);
+  }
+
+  @media (max-height: 700px) {
+    .game-title { font-size: 52px; }
+    .game-subtitle { margin-bottom: 36px; }
+    .preview-area { margin-bottom: 32px; }
+    .best-score-display { margin-bottom: 28px; }
+  }
+
+  /* Screens */
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    background: rgba(10,10,15,0.97);
+    transition: opacity 0.3s;
+  }
+  .hidden { display: none !important; }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+
+  /* Title Screen */
+  #title-screen {
+    gap: 0;
+    background: rgba(238, 246, 255, 0.55);
+    backdrop-filter: blur(1px);
+    -webkit-backdrop-filter: blur(1px);
+  }
+
+  .game-title {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 64px;
+    letter-spacing: 8px;
+    color: #1d4ed8;
+    text-shadow: 0 6px 0 rgba(37,99,235,0.12), 0 16px 30px rgba(37,99,235,0.18);
+    animation: pulse-glow 2s ease-in-out infinite;
+    margin-bottom: 8px;
+  }
+
+  .game-subtitle {
+    font-size: 12px;
+    letter-spacing: 6px;
+    color: rgba(37,99,235,0.55);
+    text-transform: uppercase;
+    margin-bottom: 60px;
+  }
+
+  /* Animated dot preview */
+  .preview-area {
+    width: 280px;
+    height: 100px;
+    position: relative;
+    margin-bottom: 50px;
+    overflow: hidden;
+  }
+  .preview-dot {
+    width: 38px;
+    height: 38px;
+    position: absolute;
+    top: 32px;
+    animation: preview-bounce 1.2s ease-in-out infinite;
+  }
+  .preview-dot::after { content: "👨‍💼"; font-size: 32px; }
+  .preview-wall {
+    position: absolute;
+    width: 20px;
+    background: transparent;
+    border-radius: 4px;
+    box-shadow: none;
+    animation: preview-wall-move 2s linear infinite;
+  }
+  .preview-wall.top { top: 4px; height: 30px; left: 220px; }
+  .preview-wall.bot { bottom: 4px; height: 30px; left: 220px; animation-delay: 0s; }
+  .preview-wall::after { content: "👨‍🦲💢"; font-size: 26px; }
+
+  @keyframes preview-bounce {
+    0%, 100% { top: 35px; }
+    50% { top: 50px; }
+  }
+  @keyframes preview-wall-move {
+    from { left: 280px; }
+    to { left: -20px; }
+  }
+
+  .best-score-display {
+    font-size: 13px;
+    color: rgba(255,215,0,0.7);
+    letter-spacing: 2px;
+    margin-bottom: 40px;
+  }
+  .best-score-display span {
+    color: var(--gold);
+    font-size: 20px;
+    font-weight: 700;
+  }
+
+  button {
+    -webkit-appearance: none;
+    appearance: none;
+    touch-action: manipulation;
+  }
+
+  .tap-btn {
+    background: var(--accent);
+    color: #ffffff;
+    border: none;
+    padding: 16px 48px;
+    border-radius: 50px;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    cursor: pointer;
+    font-family: 'Black Han Sans', sans-serif;
+    transition: all 0.15s;
+    box-shadow: 0 0 30px rgba(0,255,204,0.3);
+    animation: btn-breathe 2s ease-in-out infinite;
+  }
+  .tap-btn:active { transform: scale(0.95); }
+
+  @keyframes btn-breathe {
+    0%, 100% { box-shadow: 0 0 20px rgba(0,255,204,0.3); }
+    50% { box-shadow: 0 0 40px rgba(0,255,204,0.6); }
+  }
+
+  .tap-hint {
+    margin-top: 16px;
+    font-size: 11px;
+    color: rgba(255,255,255,0.3);
+    letter-spacing: 2px;
+  }
+
+  /* HUD */
+  #hud {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    padding: max(20px, env(safe-area-inset-top)) 24px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    z-index: 20;
+    pointer-events: none;
+  }
+
+  .score-box {
+    text-align: center;
+  }
+
+  .score-label {
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: rgba(37,99,235,0.55);
+    text-transform: uppercase;
+  }
+
+  .score-value {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 42px;
+    color: #111827;
+    line-height: 1;
+    text-shadow: 0 3px 0 rgba(37,99,235,0.12), 0 10px 24px rgba(37,99,235,0.18);
+    transition: transform 0.08s ease-out;
+  }
+
+  .score-value.bump {
+    transform: scale(1.18);
+  }
+
+  .level-box {
+    position: absolute;
+    left: 50%;
+    top: max(20px, env(safe-area-inset-top));
+    transform: translateX(-50%);
+    text-align: center;
+    background: rgba(255,255,255,0.82);
+    border: 1px solid rgba(15,23,42,0.08);
+    border-radius: 999px;
+    padding: 6px 14px 7px;
+    box-shadow: 0 8px 24px rgba(15,23,42,0.08);
+    min-width: 108px;
+  }
+
+  .level-label {
+    font-size: 8px;
+    letter-spacing: 2px;
+    color: rgba(15,23,42,0.45);
+    line-height: 1;
+  }
+
+  .level-value {
+    margin-top: 3px;
+    font-size: 13px;
+    font-weight: 900;
+    color: #111827;
+    line-height: 1;
+  }
+
+  .best-box {
+    text-align: right;
+  }
+
+  .best-label {
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: rgba(255,215,0,0.5);
+    text-transform: uppercase;
+  }
+
+  .best-value {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 22px;
+    color: var(--gold);
+    line-height: 1;
+  }
+
+  /* Game Over Screen */
+  #gameover-screen {
+    gap: 8px;
+    overflow-y: auto;
+    padding: 16px 0;
+  }
+
+  /* 닉네임 입력 */
+  .nickname-row {
+    display: flex;
+    gap: 8px;
+    width: 280px;
+    align-items: center;
+  }
+  .nickname-input {
+    flex: 1;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 50px;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-family: 'Noto Sans KR', sans-serif;
+    color: #ffffff;
+    outline: none;
+    -webkit-appearance: none;
+  }
+  .nickname-input::placeholder { color: rgba(255,255,255,0.35); }
+  .nickname-input:focus { border-color: rgba(255,255,255,0.6); }
+  .btn-submit {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 50px;
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: 'Black Han Sans', sans-serif;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+  }
+  .btn-submit:active { transform: scale(0.95); }
+
+  /* 리더보드 */
+  .leaderboard {
+    width: 280px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  .lb-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .lb-title {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 13px;
+    color: var(--gold);
+    letter-spacing: 2px;
+  }
+  .lb-loading {
+    font-size: 11px;
+    color: rgba(255,255,255,0.4);
+  }
+  .lb-list {
+    max-height: 240px;
+    overflow-y: auto;
+  }
+  .lb-row {
+    display: flex;
+    align-items: center;
+    padding: 10px 16px;
+    gap: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    transition: background 0.15s;
+  }
+  .lb-row:last-child { border-bottom: none; }
+  .lb-row.me { background: rgba(37,99,235,0.18); }
+  .lb-rank {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 15px;
+    color: rgba(255,255,255,0.35);
+    width: 24px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .lb-rank.gold { color: #ffd700; }
+  .lb-rank.silver { color: #c0c0c0; }
+  .lb-rank.bronze { color: #cd7f32; }
+  .lb-name {
+    flex: 1;
+    font-size: 15px;
+    color: rgba(255,255,255,0.85);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .lb-score {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 18px;
+    color: #ffffff;
+    flex-shrink: 0;
+  }
+
+  .go-title {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 44px;
+    color: var(--danger);
+    text-shadow: 0 0 30px rgba(255,51,102,0.5);
+    letter-spacing: 4px;
+  }
+
+  .result-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 10px 24px;
+    text-align: center;
+    width: 280px;
+    margin: 2px 0;
+  }
+
+  .result-score {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 36px;
+    color: white;
+    line-height: 1;
+  }
+
+  .result-score-label {
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: rgba(255,255,255,0.4);
+    margin-bottom: 4px;
+  }
+
+  .result-best {
+    font-size: 11px;
+    color: var(--gold);
+    letter-spacing: 1px;
+  }
+
+  .new-record {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 14px;
+    color: var(--gold);
+    letter-spacing: 4px;
+    text-shadow: 0 0 20px rgba(255,215,0,0.6);
+    animation: pulse-glow 1s ease-in-out infinite;
+    display: none;
+  }
+  .new-record.show { display: block; }
+
+  .btn-row {
+    display: flex;
+    gap: 12px;
+    margin-top: 12px;
+  }
+
+  .btn-retry {
+    background: var(--accent);
+    color: #ffffff;
+    border: none;
+    padding: 14px 36px;
+    border-radius: 50px;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    cursor: pointer;
+    font-family: 'Black Han Sans', sans-serif;
+    transition: all 0.15s;
+    box-shadow: 0 0 20px rgba(0,255,204,0.3);
+  }
+  .btn-retry:active { transform: scale(0.95); }
+
+  .btn-share {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid rgba(255,255,255,0.2);
+    padding: 14px 24px;
+    border-radius: 50px;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    cursor: pointer;
+    font-family: 'Noto Sans KR', sans-serif;
+    transition: all 0.15s;
+  }
+  .btn-share:active { transform: scale(0.95); background: rgba(255,255,255,0.05); }
+
+  /* 수익화 배너 (광고 자리) */
+  .ad-banner {
+    width: 280px;
+    height: 50px;
+    background: linear-gradient(135deg, rgba(255,215,0,0.08), rgba(255,215,0,0.03));
+    border: 1px dashed rgba(255,215,0,0.2);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 11px;
+    color: rgba(255,215,0,0.5);
+    letter-spacing: 1px;
+    margin-top: 4px;
+  }
+  .ad-icon { font-size: 16px; }
+
+  /* 코인 수익화 버튼 */
+  .revive-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, #ffd700, #ffaa00);
+    color: #1a1000;
+    border: none;
+    padding: 12px 28px;
+    border-radius: 50px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.15s;
+    box-shadow: 0 4px 20px rgba(255,215,0,0.3);
+  }
+  .revive-btn:active { transform: scale(0.95); }
+
+  @keyframes pulse-glow {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+
+  /* Particles */
+  .particle {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    animation: particle-float 1s ease-out forwards;
+  }
+
+  @keyframes particle-float {
+    0% { opacity: 1; transform: scale(1) translate(0, 0); }
+    100% { opacity: 0; transform: scale(0) translate(var(--tx), var(--ty)); }
+  }
+
+  /* Count-in */
+  .count-in {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 8;
+    pointer-events: none;
+  }
+
+  .count-number {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 120px;
+    color: var(--accent);
+    text-shadow: 0 0 40px rgba(0,255,204,0.6);
+    opacity: 0;
+    transform: scale(2);
+  }
+
+  .count-number.pop {
+    animation: count-pop 0.5s ease-out forwards;
+  }
+
+  @keyframes count-pop {
+    0% { opacity: 0; transform: scale(2); }
+    40% { opacity: 1; transform: scale(0.9); }
+    80% { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(0.8); }
+  }
+
+  /* 레벨업 알림 */
+  #levelup-banner {
+    position: absolute;
+    top: 72px;
+    left: 0; right: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 30;
+    pointer-events: none;
+    opacity: 0;
+  }
+  #levelup-banner.show {
+    animation: levelup-pop 1.4s ease-out forwards;
+  }
+  .levelup-title {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 11px;
+    letter-spacing: 4px;
+    color: rgba(255,255,255,0.85);
+    margin-bottom: 3px;
+  }
+  .levelup-name {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 22px;
+    letter-spacing: 2px;
+    color: #ffffff;
+    text-shadow: 0 0 20px currentColor;
+  }
+  @keyframes levelup-pop {
+    0%   { opacity: 0; transform: translateY(-10px); }
+    18%  { opacity: 1; transform: translateY(0px); }
+    72%  { opacity: 1; transform: translateY(0px); }
+    100% { opacity: 0; transform: translateY(-6px); }
+  }
+</style>
+</head>
+<body>
+
+<div id="game-wrapper">
+  <!-- Canvas -->
+  <canvas id="canvas" width="360" height="640"></canvas>
+
+  <!-- HUD (점수) -->
+  <div id="hud" class="hidden">
+    <div class="score-box">
+      <div class="score-label">생존점수</div>
+      <div class="score-value" id="score-display">0</div>
+    </div>
+    <div class="level-box" id="level-box">
+      <div class="level-label">LEVEL 1</div>
+      <div class="level-value" id="level-display">입사동기</div>
+    </div>
+    <div class="best-box">
+      <div class="best-label">BEST</div>
+      <div class="best-value" id="best-display-hud">0</div>
+    </div>
+  </div>
+
+  <!-- Count-in -->
+  <div class="count-in hidden" id="count-in">
+    <div class="count-number" id="count-number">3</div>
+  </div>
+
+  <!-- 레벨업 배너 -->
+  <div id="levelup-banner">
+    <div class="levelup-title" id="levelup-title">LEVEL UP!</div>
+    <div class="levelup-name" id="levelup-name">김대리 등장!</div>
+  </div>
+
+  <!-- Title Screen -->
+  <div class="screen" id="title-screen">
+    <div class="game-title" style="font-size:48px; letter-spacing:2px;">김사원의</div>
+    <div class="game-title" style="margin-top:-10px; font-size:46px; letter-spacing:4px; color:#ef4444">출근길</div>
+    <div class="game-subtitle">김사원 무사히 출근하기</div>
+
+    <div class="preview-area" style="display:none;">
+      <div class="preview-dot"></div>
+      <div class="preview-wall top"></div>
+      <div class="preview-wall bot"></div>
+    </div>
+
+    <div class="best-score-display">최고기록 <span id="best-display-title">0</span></div>
+
+    <button class="tap-btn" id="start-btn">S T A R T</button>
+    <div class="tap-hint">탭으로 점프 • 레벨별 잔소리 회피</div>
+  </div>
+
+  <!-- Game Over Screen -->
+  <div class="screen hidden" id="gameover-screen">
+    <div class="go-title">지각 위기!</div>
+    <div class="new-record" id="new-record-badge">★ NEW RECORD ★</div>
+
+    <div class="result-card">
+      <div class="result-score-label">생존점수</div>
+      <div class="result-score" id="result-score">0</div>
+      <div class="result-best" id="result-best">최고기록: 0</div>
+    </div>
+
+    <!-- 닉네임 등록 -->
+    <div class="nickname-row" id="nickname-row">
+      <input class="nickname-input" id="nickname-input" type="text" maxlength="10" placeholder="닉네임 입력 (최대 10자)" />
+      <button class="btn-submit" id="nickname-submit">등록</button>
+    </div>
+
+    <!-- 리더보드 -->
+    <div class="leaderboard">
+      <div class="lb-header">
+        <span class="lb-title">🏆 전체 랭킹</span>
+        <span class="lb-loading" id="lb-status">불러오는 중...</span>
+      </div>
+      <div class="lb-list" id="lb-list"></div>
+    </div>
+
+    <!-- 수익화: 광고 보고 부활 -->
+    <button class="revive-btn" id="revive-btn">
+      🎬 광고 보고 부활하기
+    </button>
+
+    <!-- 친구 공유 후 부활 -->
+    <button class="revive-btn" id="share-revive-btn" style="background: linear-gradient(135deg, #22c55e, #16a34a); margin-top: -4px;">
+      👫 친구에게 공유하고 부활하기
+    </button>
+
+    <div class="btn-row">
+      <button class="btn-retry" id="retry-btn">RETRY</button>
+      <button class="btn-share" id="share-btn">📤 공유</button>
+    </div>
+
+  </div>
+</div>
+
+<script type="module">
+// iPhone/Safari 호환성 보강: 오래된 Safari에서 roundRect 미지원 시 게임이 열리지 않는 문제 방지
+(function() {
+  if (!CanvasRenderingContext2D.prototype.roundRect) {
+    CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+      if (Array.isArray(r)) r = Math.max.apply(null, r);
+      r = Math.min(r || 0, Math.abs(w) / 2, Math.abs(h) / 2);
+      this.moveTo(x + r, y);
+      this.lineTo(x + w - r, y);
+      this.quadraticCurveTo(x + w, y, x + w, y + r);
+      this.lineTo(x + w, y + h - r);
+      this.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      this.lineTo(x + r, y + h);
+      this.quadraticCurveTo(x, y + h, x, y + h - r);
+      this.lineTo(x, y + r);
+      this.quadraticCurveTo(x, y, x + r, y);
+      return this;
+    };
+  }
+})();
+
+function setRealViewportHeight() {
+  document.documentElement.style.setProperty('--vh', (window.innerHeight * 0.01) + 'px');
+}
+setRealViewportHeight();
+window.addEventListener('resize', setRealViewportHeight);
+window.addEventListener('orientationchange', function(){ setTimeout(setRealViewportHeight, 250); });
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const W = 360, H = 640;
+
+// 모바일 고해상도 디스플레이 대응: 게임 로직은 360×640 기준으로 유지하고,
+// 실제 캔버스만 DPR에 맞게 키워서 안드로이드/iOS에서 선명하게 보이도록 처리.
+let DPR = 1;
+function setupCanvas() {
+  DPR = Math.min(window.devicePixelRatio || 1, 3);
+  canvas.width = Math.floor(W * DPR);
+  canvas.height = Math.floor(H * DPR);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+setupCanvas();
+window.addEventListener('resize', setupCanvas);
+window.addEventListener('orientationchange', () => setTimeout(setupCanvas, 250));
+
+// --- State ---
+let state = 'title'; // title | countdown | playing | dead
+let score = 0;
+let best = parseInt(localStorage.getItem('kimCommuteBest') || '0');
+let frameId;
+let scoreMultiplier = 1;
+let reviveUsed = false;
+
+// --- Player ---
+const DOT_R = 10;
+let dot = { x: 80, y: H/2, vy: 0 };
+// 조작감 밸런스: 초반 체공시간을 늘리고 낙하를 부드럽게 조정
+const GRAVITY = 0.072;
+const JUMP = -3.0;
+const MAX_FALL = 2.6;
+
+// --- Obstacles ---
+let walls = [];
+let wallTimer = 0;
+const WALL_W = 22;
+const BASE_GAP = 230;
+const MIN_GAP = 195;
+let speed = 2.8;
+const BASE_SPEED = 2.8;
+const MAX_SPEED = 11.0;
+let lastGapCenter = H / 2;
+
+// --- Stars background ---
+const stars = Array.from({length: 60}, () => ({
+  x: Math.random() * W,
+  y: Math.random() * H,
+  r: Math.random() * 1.5 + 0.3,
+  a: Math.random(),
+  da: (Math.random() - 0.5) * 0.02
+}));
+
+// --- Trail ---
+let trail = [];
+
+// --- Update UI ---
+function updateBestUI() {
+  document.getElementById('best-display-title').textContent = best;
+  document.getElementById('best-display-hud').textContent = best;
+}
+updateBestUI();
+
+function updateScoreUI(withBump = false) {
+  const scoreEl = document.getElementById('score-display');
+  const visibleScore = Math.floor(score * scoreMultiplier);
+  scoreEl.textContent = visibleScore;
+  if (withBump) {
+    scoreEl.classList.remove('bump');
+    void scoreEl.offsetWidth;
+    scoreEl.classList.add('bump');
+    setTimeout(() => scoreEl.classList.remove('bump'), 90);
+  }
+  updateLevelUI();
+}
+
+function updateLevelUI() {
+  const stage = getLevelStage(score);
+  const levelBox = document.getElementById('level-box');
+  const levelDisplay = document.getElementById('level-display');
+  if (!levelBox || !levelDisplay) return;
+  levelBox.querySelector('.level-label').textContent = `LEVEL ${stage.level}`;
+  levelDisplay.textContent = stage.name;
+  levelBox.style.borderColor = stage.color + '55';
+  levelBox.style.boxShadow = `0 8px 24px ${stage.color}22`;
+}
+
+// --- Input ---
+function handleInput() {
+  if (state === 'title') return;
+  if (state === 'dead') return;
+  if (state === 'countdown') return;
+  // jump
+  dot.vy = JUMP;
+  spawnParticles(dot.x, dot.y, '#2563eb', 6);
+}
+
+const gameWrapper = document.getElementById('game-wrapper');
+let lastInputAt = 0;
+function fireInput(e) {
+  if (e) e.preventDefault();
+  const now = performance.now();
+  // 일부 모바일 브라우저에서 pointer/click이 중복 발생하는 것을 방지
+  if (now - lastInputAt < 80) return;
+  lastInputAt = now;
+  handleInput();
+}
+
+gameWrapper.addEventListener('pointerdown', fireInput, { passive: false });
+document.addEventListener('keydown', e => { if (e.code === 'Space') fireInput(e); });
+
+// iOS Safari에서 화면 드래그/핀치로 게임이 밀리는 현상 방지
+document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+document.addEventListener('gesturestart', e => e.preventDefault());
+
+// --- Screens ---
+function showScreen(id) {
+  ['title-screen','gameover-screen'].forEach(s => {
+    document.getElementById(s).classList.add('hidden');
+  });
+  ['hud','count-in'].forEach(s => {
+    document.getElementById(s).classList.add('hidden');
+  });
+  if (id) document.getElementById(id).classList.remove('hidden');
+}
+
+// --- Start Game ---
+document.getElementById('start-btn').addEventListener('click', e => {
+  e.stopPropagation();
+  startCountdown();
+});
+
+document.getElementById('retry-btn').addEventListener('click', e => {
+  e.stopPropagation();
+  scoreMultiplier = 1;
+  reviveUsed = false;
+  startCountdown();
+});
+
+document.getElementById('revive-btn').addEventListener('click', e => {
+  e.stopPropagation();
+  if (reviveUsed) return;
+  reviveUsed = true;
+  alert('🎬 광고 재생 완료!\n잠시 후 부활합니다...');
+  document.getElementById('gameover-screen').classList.add('hidden');
+  reviveWithCountdown();
+});
+
+document.getElementById('share-revive-btn').addEventListener('click', e => {
+  e.stopPropagation();
+  if (reviveUsed) return;
+  const msg = `👨‍💼 김사원의 출근길\n내 생존점수: ${Math.floor(score)}점\n최고기록: ${best}점\n\n나 지금 위기야! 같이 해봐 👉`;
+  const doRevive = () => {
+    reviveUsed = true;
+    document.getElementById('gameover-screen').classList.add('hidden');
+    reviveWithCountdown();
+  };
+  if (navigator.share) {
+    navigator.share({ title: '김사원의 출근길', text: msg }).then(doRevive).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(msg).then(() => {
+      alert('📋 링크 복사 완료!\n친구에게 보내고 부활!');
+      doRevive();
+    });
+  }
+});
+
+document.getElementById('share-btn').addEventListener('click', e => {
+  e.stopPropagation();
+  const msg = `👨‍💼 김사원의 출근길\n내 생존점수: ${Math.floor(score * scoreMultiplier)}점\n최고기록: ${best}점\n\n부장님 잔소리를 피해봐!`;
+  if (navigator.share) {
+    navigator.share({ title: '김사원의 출근길', text: msg });
+  } else {
+    navigator.clipboard.writeText(msg).then(() => alert('클립보드에 복사됨!'));
+  }
+});
+
+function startCountdown() {
+  state = 'countdown';
+  resetGame();
+  showScreen(null);
+  document.getElementById('hud').classList.remove('hidden');
+
+  const countEl = document.getElementById('count-in');
+  const numEl = document.getElementById('count-number');
+  countEl.classList.remove('hidden');
+
+  let n = 3;
+  numEl.textContent = n;
+  numEl.className = 'count-number';
+  void numEl.offsetWidth;
+  numEl.classList.add('pop');
+
+  const iv = setInterval(() => {
+    n--;
+    if (n <= 0) {
+      clearInterval(iv);
+      numEl.textContent = 'GO!';
+      numEl.className = 'count-number';
+      void numEl.offsetWidth;
+      numEl.classList.add('pop');
+      setTimeout(() => {
+        countEl.classList.add('hidden');
+        state = 'playing';
+      }, 500);
+    } else {
+      numEl.textContent = n;
+      numEl.className = 'count-number';
+      void numEl.offsetWidth;
+      numEl.classList.add('pop');
+    }
+  }, 700);
+}
+
+function resetGame() {
+  dot = { x: 80, y: H/2, vy: 0 };
+  walls = [];
+  wallTimer = 0;
+  speed = BASE_SPEED;
+  lastGapCenter = H / 2;
+  score = 0;
+  trail = [];
+  updateScoreUI();
+}
+
+
+function reviveWithCountdown() {
+  dot = { x: 80, y: H/2, vy: 0 };
+  walls = walls.filter(w => w.x > W + 100);
+  wallTimer = 0;
+  trail = [];
+  showScreen(null);
+  document.getElementById('hud').classList.remove('hidden');
+  spawnParticles(dot.x, dot.y, '#ffd700', 20);
+
+  state = 'countdown';
+  const countEl = document.getElementById('count-in');
+  const numEl = document.getElementById('count-number');
+  countEl.classList.remove('hidden');
+
+  let n = 3;
+  numEl.textContent = n;
+  numEl.className = 'count-number';
+  void numEl.offsetWidth;
+  numEl.classList.add('pop');
+
+  const iv = setInterval(() => {
+    n--;
+    if (n <= 0) {
+      clearInterval(iv);
+      numEl.textContent = 'GO!';
+      numEl.className = 'count-number';
+      void numEl.offsetWidth;
+      numEl.classList.add('pop');
+      setTimeout(() => {
+        countEl.classList.add('hidden');
+        state = 'playing';
+      }, 500);
+    } else {
+      numEl.textContent = n;
+      numEl.className = 'count-number';
+      void numEl.offsetWidth;
+      numEl.classList.add('pop');
+    }
+  }, 700);
+}
+
+function revive() {
+  reviveWithCountdown();
+}
+
+// --- Level Up Banner ---
+function showLevelUpBanner(stage) {
+  const banner = document.getElementById('levelup-banner');
+  const nameEl = document.getElementById('levelup-name');
+  const titleEl = document.getElementById('levelup-title');
+  nameEl.textContent = stage.name + ' 등장!';
+  nameEl.style.color = stage.color;
+  nameEl.style.textShadow = `0 0 20px ${stage.color}`;
+  titleEl.style.color = 'rgba(255,255,255,0.85)';
+  banner.style.background = '';
+  banner.classList.remove('show');
+  void banner.offsetWidth;
+  banner.classList.add('show');
+}
+
+// --- Leaderboard (Firebase Firestore) ---
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics.js";
+import { getFirestore, collection, getDocs, setDoc, doc, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDj6RPBYLRgi39b8m1uoaMLjvm0CG_zF0g",
+  authDomain: "kimsawon-848ed.firebaseapp.com",
+  projectId: "kimsawon-848ed",
+  storageBucket: "kimsawon-848ed.firebasestorage.app",
+  messagingSenderId: "51995343039",
+  appId: "1:51995343039:web:40d597eda60a2953f92e0a",
+  measurementId: "G-GTJCYPV86X"
+};
+
+const fbApp = initializeApp(firebaseConfig);
+const analytics = getAnalytics(fbApp);
+const db = getFirestore(fbApp);
+const LB_COL = 'kimCommute_lb';
+
+const LB_KEY = 'kimCommute_lb_local'; // 로컬 fallback용
+let myNickname = localStorage.getItem('kimCommuteNick') || '';
+let pendingScore = 0;
+
+async function loadLeaderboard() {
+  const listEl = document.getElementById('lb-list');
+  const statusEl = document.getElementById('lb-status');
+  listEl.innerHTML = '';
+  statusEl.textContent = '불러오는 중...';
+  try {
+    const q = query(collection(db, LB_COL), orderBy('score', 'desc'), limit(30));
+    const snap = await getDocs(q);
+    const entries = snap.docs.map(d => d.data());
+    renderLeaderboard(entries);
+    statusEl.textContent = `${entries.length}명 참여중`;
+  } catch(e) {
+    // Firebase 연결 전이면 로컬로 fallback
+    const raw = localStorage.getItem(LB_KEY);
+    const entries = raw ? JSON.parse(raw) : [];
+    renderLeaderboard(entries);
+    statusEl.textContent = entries.length ? `${entries.length}명 (로컬)` : '로컬 모드';
+  }
+}
+
+async function submitScore(nickname, sc) {
+  if (!nickname.trim()) return;
+  nickname = nickname.trim().slice(0, 10);
+  localStorage.setItem('kimCommuteNick', nickname);
+  myNickname = nickname;
+  try {
+    const ref = doc(db, LB_COL, nickname);
+    const { getDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+    const snap = await getDoc(ref);
+    const prevScore = snap.exists() ? snap.data().score : 0;
+    if (sc >= prevScore) {
+      await setDoc(ref, { name: nickname, score: sc, updatedAt: Date.now() });
+    }
+    await loadLeaderboard();
+    document.getElementById('nickname-row').style.opacity = '0.5';
+    document.getElementById('nickname-submit').disabled = true;
+  } catch(e) {
+    // fallback: localStorage
+    const raw = localStorage.getItem(LB_KEY);
+    let entries = raw ? JSON.parse(raw) : [];
+    const existing = entries.findIndex(e => e.name === nickname);
+    if (existing >= 0) { if (sc > entries[existing].score) entries[existing].score = sc; }
+    else entries.push({ name: nickname, score: sc });
+    entries.sort((a, b) => b.score - a.score);
+    entries = entries.slice(0, 30);
+    localStorage.setItem(LB_KEY, JSON.stringify(entries));
+    renderLeaderboard(entries);
+    document.getElementById('lb-status').textContent = `${entries.length}명 (로컬)`;
+    document.getElementById('nickname-row').style.opacity = '0.5';
+    document.getElementById('nickname-submit').disabled = true;
+  }
+}
+
+function renderLeaderboard(entries) {
+  const listEl = document.getElementById('lb-list');
+  listEl.innerHTML = '';
+  if (!entries.length) {
+    listEl.innerHTML = '<div style="padding:16px;text-align:center;color:rgba(255,255,255,0.3);font-size:12px;">아직 기록이 없어요. 첫 번째로 등록해보세요!</div>';
+    return;
+  }
+  const rankSymbols = ['🥇','🥈','🥉'];
+  const rankClass = ['gold','silver','bronze'];
+  entries.forEach((e, i) => {
+    const isMe = e.name === myNickname;
+    const row = document.createElement('div');
+    row.className = 'lb-row' + (isMe ? ' me' : '');
+    const rankEl = i < 3
+      ? `<span class="lb-rank ${rankClass[i]}">${rankSymbols[i]}</span>`
+      : `<span class="lb-rank">${i + 1}</span>`;
+    row.innerHTML = `${rankEl}<span class="lb-name">${e.name}${isMe ? ' 👈' : ''}</span><span class="lb-score">${e.score}</span>`;
+    listEl.appendChild(row);
+  });
+  // 내 기록으로 스크롤
+  const meRow = listEl.querySelector('.me');
+  if (meRow) setTimeout(() => meRow.scrollIntoView({ block: 'nearest' }), 100);
+}
+
+document.getElementById('nickname-submit').addEventListener('click', e => {
+  e.stopPropagation();
+  e.preventDefault();
+  const nick = document.getElementById('nickname-input').value;
+  if (!nick.trim()) { document.getElementById('nickname-input').focus(); return; }
+  submitScore(nick, pendingScore);
+});
+document.getElementById('nickname-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('nickname-submit').click();
+  e.stopPropagation();
+});
+['pointerdown','pointerup','touchstart','touchend','click','mousedown','mouseup'].forEach(ev => {
+  document.getElementById('nickname-input').addEventListener(ev, e => e.stopPropagation(), { passive: false });
+  document.getElementById('nickname-submit').addEventListener(ev, e => e.stopPropagation(), { passive: false });
+});
+
+// --- Game Over ---
+function gameOver() {
+  state = 'dead';
+  spawnParticles(dot.x, dot.y, '#ef4444', 20);
+
+  const finalScore = Math.floor(score * scoreMultiplier);
+  pendingScore = finalScore;
+  const isNew = finalScore > best;
+  if (isNew) {
+    best = finalScore;
+    localStorage.setItem('kimCommuteBest', best);
+    updateBestUI();
+  }
+
+  document.getElementById('result-score').textContent = finalScore;
+  document.getElementById('result-best').textContent = `최고기록: ${best}`;
+  document.getElementById('new-record-badge').classList.toggle('show', isNew);
+  document.getElementById('revive-btn').style.display = reviveUsed ? 'none' : 'flex';
+  document.getElementById('share-revive-btn').style.display = reviveUsed ? 'none' : 'flex';
+
+  // 닉네임 입력칸 초기화
+  const nickInput = document.getElementById('nickname-input');
+  const nickSubmit = document.getElementById('nickname-submit');
+  const nickRow = document.getElementById('nickname-row');
+  nickInput.value = myNickname;
+  nickSubmit.disabled = false;
+  nickRow.style.opacity = '1';
+
+  setTimeout(() => {
+    showScreen('gameover-screen');
+    loadLeaderboard();
+  }, 300);
+}
+
+// --- Spawn Particles ---
+function spawnParticles(x, y, color, count) {
+  const rect = gameWrapper.getBoundingClientRect();
+  const sx = rect.width / W;
+  const sy = rect.height / H;
+  for (let i = 0; i < count; i++) {
+    const el = document.createElement('div');
+    el.className = 'particle';
+    const size = (Math.random() * 6 + 2) * sx;
+    el.style.cssText = `
+      width:${size}px; height:${size}px;
+      background:${color};
+      left:${x * sx}px; top:${y * sy}px;
+      --tx:${(Math.random()-0.5)*80*sx}px;
+      --ty:${(Math.random()-0.5)*80*sy}px;
+    `;
+    gameWrapper.appendChild(el);
+    setTimeout(() => el.remove(), 1000);
+  }
+}
+
+// --- Difficulty / Pattern ---
+function getDifficulty() {
+  // 모든 레벨에서 실제 통과 가능한 간격을 유지한다.
+  // 난이도는 '속도 + 등장 간격 + 캐릭터/멘트 변화'로 올리고, 틈은 과하게 줄이지 않는다.
+  const stage = getLevelStage(score);
+  // 레벨이 오를수록 '확실히' 빨라지고, 틈도 단계적으로 좁아진다.
+  // 단, MIN_GAP과 maxDelta 제한으로 물리적으로 불가능한 패턴은 막는다.
+  const gapByLevel = [230, 215, 202, 195];
+  const gap = Math.max(MIN_GAP, gapByLevel[stage.level - 1] || MIN_GAP);
+  const spawnByLevel = [62, 54, 48, 43];
+  const spawnInterval = Math.max(38, (spawnByLevel[stage.level - 1] || 43) - Math.min(score, 90) * 0.045);
+  const speedByLevel = [2.8, 4.2, 6.0, 8.2];
+  let targetSpeed = (speedByLevel[stage.level - 1] || 5.5) + Math.min(score, 90) * 0.008;
+  return { level: stage.level, gap, spawnInterval, targetSpeed: Math.min(MAX_SPEED, targetSpeed), stage };
+}
+
+// --- Spawn Wall ---
+function spawnWall() {
+  const d = getDifficulty();
+  const gap = d.gap;
+  const safeMargin = 82;
+
+  // 이전 장애물과 틈 위치가 너무 크게 벌어지면 물리적으로 통과 불가능해질 수 있어
+  // 새 틈 중심을 이전 중심에서 ±105px 안쪽으로 제한한다.
+  const minCenter = safeMargin + gap / 2;
+  const maxCenter = H - safeMargin - gap / 2;
+  let rawCenter = minCenter + Math.random() * (maxCenter - minCenter);
+  const maxDeltaByLevel = [60, 100, 145, 190];
+  const maxDelta = maxDeltaByLevel[d.level - 1] || 68;
+  let center = Math.max(lastGapCenter - maxDelta, Math.min(lastGapCenter + maxDelta, rawCenter));
+  center = Math.max(minCenter, Math.min(maxCenter, center));
+  lastGapCenter = center;
+
+  let type = 'normal';
+  if (d.level >= 2 && Math.random() < 0.22) type = 'offset';
+  if (d.level >= 3 && Math.random() < 0.18) type = 'moving';
+  if (d.level >= 4 && Math.random() < 0.16) type = 'pressure';
+
+  const gapY = center - gap / 2;
+  walls.push({
+    x: W + WALL_W,
+    stage: d.stage,
+    topH: gapY,
+    gap,
+    baseGapY: gapY,
+    botY: gapY + gap,
+    passed: false,
+    type,
+    phase: Math.random() * Math.PI * 2,
+    amp: type === 'moving' ? (d.level >= 4 ? 55 : 35) : 0
+  });
+}
+
+// --- Draw ---
+function drawBackground() {
+  const stage = getLevelStage(score);
+  ctx.fillStyle = stage.bg;
+  ctx.fillRect(0, 0, W, H);
+}
+function drawStars() {}
+function drawGrid() {}
+
+const rankStages = [
+  { level: 1, name: '입사동기', min: 0,  color: '#22c55e', bg: '#ffffff', hair: 'side',  lines: ['이직할때 말해줘요', '커피 마셨어요?', '우리회사 성과급은 왜 ㅠㅠ'] },
+  { level: 2, name: '김대리',   min: 12, color: '#3b82f6', bg: '#eff6ff', hair: 'part',  lines: ['요새 애들은...', '대학생때 안 배웠어요?', '다른 곳도 다 똑같아요'] },
+  { level: 3, name: '김과장',   min: 32, color: '#f59e0b', bg: '#fffbeb', hair: 'short', lines: ['잠깐 회의실로', '누가 메일을 그렇게 쓰나?', '저녁에 뭐해?'] },
+  { level: 4, name: '김부장',   min: 58, color: '#ef4444', bg: '#fef2f2', hair: 'bald',  lines: ['라떼는 말이야', '회사 놀러왔어?', '퇴사하는거 아니지?'] }
+];
+
+function getLevelStage(sc = score) {
+  let stage = rankStages[0];
+  for (const r of rankStages) if (sc >= r.min) stage = r;
+  return stage;
+}
+function getRankStage(sc = score) { return getLevelStage(sc); }
+
+function drawBossFace(cx, cy, scale, angry=true, stage=getRankStage()) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(scale, scale);
+  // aura
+  ctx.fillStyle = stage.color + '22';
+  ctx.beginPath();
+  ctx.arc(0, 0, 27, 0, Math.PI * 2);
+  ctx.fill();
+  // head
+  ctx.fillStyle = '#f0c9a7';
+  ctx.beginPath();
+  ctx.arc(0, 0, 18, 0, Math.PI * 2);
+  ctx.fill();
+  // hair by rank
+  ctx.fillStyle = '#1f2937';
+  if (stage.hair === 'side') {
+    ctx.beginPath(); ctx.arc(-7, -11, 10, Math.PI * 0.95, Math.PI * 1.95); ctx.fill();
+  } else if (stage.hair === 'part') {
+    ctx.fillRect(-14, -17, 20, 6); ctx.fillRect(-16, -12, 6, 10);
+  } else if (stage.hair === 'short') {
+    for (let i=-12; i<=12; i+=6) { ctx.fillRect(i, -18, 4, 8); }
+  } else if (stage.hair === 'thin') {
+    ctx.strokeStyle = '#1f2937'; ctx.lineWidth = 2;
+    for (let i=-10; i<=10; i+=5) { ctx.beginPath(); ctx.moveTo(i, -17); ctx.lineTo(i+2, -12); ctx.stroke(); }
+  } else {
+    ctx.fillStyle = 'rgba(255,255,255,0.58)';
+    ctx.beginPath(); ctx.ellipse(-6, -8, 5, 3, -0.5, 0, Math.PI * 2); ctx.fill();
+  }
+  // ears
+  ctx.fillStyle = '#eab08d';
+  ctx.beginPath(); ctx.arc(-18, 2, 4, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(18, 2, 4, 0, Math.PI * 2); ctx.fill();
+  // eyebrows
+  ctx.strokeStyle = '#7f1d1d';
+  ctx.lineWidth = angry ? 3 : 2;
+  ctx.beginPath(); ctx.moveTo(-12, -5); ctx.lineTo(-3, -2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(12, -5); ctx.lineTo(3, -2); ctx.stroke();
+  // eyes
+  ctx.fillStyle = '#111827';
+  ctx.beginPath(); ctx.arc(-7, 2, 2, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(7, 2, 2, 0, Math.PI * 2); ctx.fill();
+  // mouth
+  ctx.strokeStyle = angry ? '#b91c1c' : '#111827';
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(0, 12, 7, Math.PI, Math.PI * 2); ctx.stroke();
+  // name tag / body
+  ctx.fillStyle = '#334155';
+  ctx.fillRect(-15, 20, 30, 19);
+  ctx.fillStyle = stage.color;
+  ctx.beginPath(); ctx.moveTo(0, 20); ctx.lineTo(-5, 37); ctx.lineTo(5, 37); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+function drawSpeech(text, x, y, flip=false, stage=getRankStage()) {
+  ctx.save();
+  ctx.font = 'bold 12px "Noto Sans KR"';
+  const textW = ctx.measureText(text).width;
+  const w = textW + 22;
+  const h = 26;
+  const bx = x - w / 2;
+  const by = y - h / 2;
+  ctx.fillStyle = 'rgba(255,255,255,0.95)';
+  ctx.strokeStyle = stage.color + '88';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.roundRect(bx, by, w, h, 8);
+  ctx.fill(); ctx.stroke();
+  ctx.fillStyle = stage.color;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, x, y + 1);
+  ctx.restore();
+}
+
+function drawWalls() {
+  walls.forEach((w, idx) => {
+    const stage = w.stage || getRankStage();
+    const line = stage.lines[(idx + Math.floor(score / 10)) % stage.lines.length];
+
+    // 잔소리 압박 영역: 기존 충돌 판정은 유지하되, 벽처럼 보이지 않게 경고 영역으로 표현
+    ctx.save();
+    const gradTop = ctx.createLinearGradient(w.x, 0, w.x + WALL_W, 0);
+    gradTop.addColorStop(0, 'rgba(239,68,68,0.18)');
+    gradTop.addColorStop(1, 'rgba(239,68,68,0.05)');
+    ctx.fillStyle = gradTop;
+    ctx.fillRect(w.x, 0, WALL_W, w.topH);
+    ctx.fillRect(w.x, w.botY, WALL_W, H - w.botY);
+
+    // 경고선
+    ctx.strokeStyle = 'rgba(239,68,68,0.65)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(w.x, w.topH); ctx.lineTo(w.x + WALL_W, w.topH); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(w.x, w.botY); ctx.lineTo(w.x + WALL_W, w.botY); ctx.stroke();
+    ctx.restore();
+
+    // 위/아래 부장 캐릭터
+    drawBossFace(w.x + WALL_W / 2, Math.max(26, w.topH - 24), 0.82, true, stage);
+    drawSpeech(line, w.x + WALL_W / 2 - 18, Math.max(22, w.topH - 56), false, stage);
+    drawBossFace(w.x + WALL_W / 2, Math.min(H - 28, w.botY + 28), 0.82, true, stage);
+    drawSpeech(line, w.x + WALL_W / 2 - 18, Math.min(H - 22, w.botY + 62), false, stage);
+
+  });
+}
+function drawDot() {
+  // Trail: 출근길 먼지/커피 향처럼 표현
+  trail.forEach((t, i) => {
+    const a = (i / trail.length) * 0.22;
+    const r = DOT_R * (i / trail.length) * 0.65;
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.fillStyle = '#2563eb';
+    ctx.beginPath();
+    ctx.arc(t.x - 3, t.y + 4, r, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  });
+
+  // 김사원 캐릭터: 충돌 반경은 기존 DOT_R 그대로 유지
+  ctx.save();
+  ctx.translate(dot.x, dot.y);
+  const bob = Math.sin(performance.now() / 90) * 1.5;
+  ctx.translate(0, bob);
+
+  // shadow
+  ctx.fillStyle = 'rgba(15,23,42,0.16)';
+  ctx.beginPath();
+  ctx.ellipse(0, 18, 12, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // legs
+  ctx.strokeStyle = '#1e293b';
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(-4, 9); ctx.lineTo(-9, 17); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(5, 9); ctx.lineTo(11, 15); ctx.stroke();
+
+  // body suit
+  ctx.fillStyle = '#1f2937';
+  ctx.beginPath();
+  ctx.roundRect(-8, -3, 16, 17, 4);
+  ctx.fill();
+  // shirt
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath(); ctx.moveTo(-4, -2); ctx.lineTo(0, 7); ctx.lineTo(4, -2); ctx.closePath(); ctx.fill();
+  // tie
+  ctx.fillStyle = '#ef4444';
+  ctx.beginPath(); ctx.moveTo(0, 1); ctx.lineTo(-3, 11); ctx.lineTo(3, 11); ctx.closePath(); ctx.fill();
+
+  // arms + briefcase/coffee
+  ctx.strokeStyle = '#334155';
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(-8, 2); ctx.lineTo(-15, 8); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(8, 2); ctx.lineTo(15, 5); ctx.stroke();
+  ctx.fillStyle = '#92400e';
+  ctx.fillRect(12, 5, 8, 9);
+
+  // head
+  ctx.fillStyle = '#f3c7a6';
+  ctx.beginPath();
+  ctx.arc(0, -12, 9, 0, Math.PI * 2);
+  ctx.fill();
+  // hair
+  ctx.fillStyle = '#111827';
+  ctx.beginPath();
+  ctx.arc(0, -16, 9, Math.PI, Math.PI * 2);
+  ctx.fill();
+  // sweat
+  ctx.fillStyle = '#38bdf8';
+  ctx.beginPath();
+  ctx.ellipse(9, -9, 2, 4, -0.3, 0, Math.PI * 2);
+  ctx.fill();
+  // face
+  ctx.fillStyle = '#111827';
+  ctx.beginPath(); ctx.arc(-3, -11, 1.2, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(4, -11, 1.2, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#7f1d1d';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(1, -7, 3, 0, Math.PI); ctx.stroke();
+
+  ctx.restore();
+}
+function drawScore() {
+  // Score
+  ctx.font = 'bold 13px "Noto Sans KR"';
+  ctx.fillStyle = 'rgba(0,255,204,0.3)';
+  if (scoreMultiplier > 1) {
+    ctx.fillStyle = 'rgba(255,215,0,0.6)';
+    ctx.fillText(`×${scoreMultiplier}`, 10, H - 40);
+  }
+}
+
+// --- Main Loop ---
+function loop() {
+  ctx.clearRect(0, 0, W, H);
+
+  // Background
+  drawBackground();
+
+  if (state === 'playing' || state === 'dead') {
+    // Physics
+    if (state === 'playing') {
+      dot.vy += GRAVITY;
+      if (dot.vy > MAX_FALL) dot.vy = MAX_FALL;
+      dot.y += dot.vy;
+
+      // Trail
+      trail.push({x: dot.x, y: dot.y});
+      if (trail.length > 12) trail.shift();
+
+      // Wall spawn
+      wallTimer++;
+      const d = getDifficulty();
+      if (wallTimer >= d.spawnInterval) {
+        wallTimer = 0;
+        spawnWall();
+      }
+
+      // Move walls / pattern update
+      speed += (d.targetSpeed - speed) * 0.025;
+      walls.forEach(w => {
+        w.x -= speed;
+        if (w.type === 'moving') {
+          const gapCenter = w.baseGapY + w.gap / 2 + Math.sin((performance.now() / 420) + w.phase) * w.amp;
+          const topLimit = 82 + w.gap / 2;
+          const bottomLimit = H - 82 - w.gap / 2;
+          const safeCenter = Math.max(topLimit, Math.min(bottomLimit, gapCenter));
+          w.topH = safeCenter - w.gap / 2;
+          w.botY = safeCenter + w.gap / 2;
+        }
+
+        // Score
+        if (!w.passed && w.x + WALL_W < dot.x) {
+          w.passed = true;
+          score++;
+          updateScoreUI(true);
+
+          if ([12, 32, 58].includes(score)) {
+            spawnParticles(dot.x, dot.y, getLevelStage().color, 24);
+            showLevelUpBanner(getLevelStage());
+          }
+        }
+      });
+
+      walls = walls.filter(w => w.x > -WALL_W - 10);
+
+      // Collision
+      const hitCeiling = dot.y - DOT_R < 0;
+      const hitFloor = dot.y + DOT_R > H;
+      const hitWall = walls.some(w => {
+        const inX = dot.x + DOT_R > w.x && dot.x - DOT_R < w.x + WALL_W;
+        const inTop = dot.y - DOT_R < w.topH;
+        const inBot = dot.y + DOT_R > w.botY;
+        return inX && (inTop || inBot);
+      });
+
+      if (hitCeiling || hitFloor || hitWall) {
+        gameOver();
+      }
+    }
+
+    drawWalls();
+    drawDot();
+    drawScore();
+  }
+
+  // Title idle animation - 실제 게임 화면 데모로 보여주기
+  if (state === 'title') {
+    // 벽 자동 이동
+    const demoSpeed = 1.8;
+    walls.forEach(w => { w.x -= demoSpeed; });
+    walls = walls.filter(w => w.x > -WALL_W - 10);
+    wallTimer++;
+    if (wallTimer >= 80) { wallTimer = 0; spawnWall(); }
+
+    // 데모 캐릭터 자동 점프 (화면 중간 유지)
+    dot.vy += GRAVITY * 0.7;
+    if (dot.vy > MAX_FALL) dot.vy = MAX_FALL;
+    dot.y += dot.vy;
+    if (dot.y > H * 0.62) dot.vy = JUMP * 0.85;
+    if (dot.y < H * 0.2) dot.vy = Math.abs(dot.vy) * 0.5;
+    trail.push({x: dot.x, y: dot.y});
+    if (trail.length > 12) trail.shift();
+
+    drawWalls();
+    drawDot();
+  }
+
+  frameId = requestAnimationFrame(loop);
+}
+
+// Start loop
+showScreen('title-screen');
+loop();
+</script>
+</body>
+</html>
