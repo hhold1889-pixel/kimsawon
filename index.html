@@ -612,6 +612,7 @@
     <div class="best-box">
       <div class="best-label">BEST</div>
       <div class="best-value" id="best-display-hud">0</div>
+      <div id="coffee-hud" style="font-size:18px;margin-top:2px;display:none;" title="아메리카노 부활권">☕</div>
     </div>
   </div>
 
@@ -680,6 +681,11 @@
       👫 친구에게 공유하고 부활하기
     </button>
 
+    <!-- 두 번째 광고 부활 (첫 부활 이후 노출) -->
+    <button class="revive-btn" id="revive-btn2" style="background: linear-gradient(135deg, #a855f7, #7c3aed); margin-top: -4px; display:none;">
+      🎬 한 번 더 광고 보고 부활하기
+    </button>
+
     <div class="btn-row" style="margin-top:12px;">
       <button class="btn-retry" id="retry-btn">👨‍💼 김사원 다시 출근시키기</button>
     </div>
@@ -738,7 +744,10 @@ let score = 0;
 let best = parseInt(localStorage.getItem('kimCommuteBest') || '0');
 let frameId;
 let scoreMultiplier = 1;
-let reviveUsed = false;
+let reviveCount = 0;       // 광고/공유 부활 사용 횟수
+let coffeeRevive = false;  // 아메리카노로 얻은 부활권
+let coffeeItem = null;     // 게임 중 아메리카노 아이템 { x, y, collected }
+let coffeeEffect = 0;      // 카페인 연출 남은 프레임 (0이면 비활성)
 
 // --- Player ---
 const DOT_R = 10;
@@ -853,24 +862,35 @@ document.getElementById('start-btn').addEventListener('click', e => {
 document.getElementById('retry-btn').addEventListener('click', e => {
   e.stopPropagation();
   scoreMultiplier = 1;
-  reviveUsed = false;
+  reviveCount = 0;
+  coffeeRevive = false;
+  coffeeItem = null;
   startCountdown();
 });
 
 document.getElementById('revive-btn').addEventListener('click', e => {
   e.stopPropagation();
-  if (reviveUsed) return;
-  reviveUsed = true;
+  if (reviveCount >= 1) return;
+  reviveCount++;
   alert('🎬 광고 재생 완료!\n잠시 후 부활합니다...');
+  document.getElementById('gameover-screen').classList.add('hidden');
+  reviveWithCountdown();
+});
+
+document.getElementById('revive-btn2').addEventListener('click', e => {
+  e.stopPropagation();
+  if (reviveCount < 1) return;
+  reviveCount++;
+  alert('🎬 광고 재생 완료!\n한 번 더 부활합니다!');
   document.getElementById('gameover-screen').classList.add('hidden');
   reviveWithCountdown();
 });
 
 document.getElementById('share-revive-btn').addEventListener('click', async e => {
   e.stopPropagation();
-  if (reviveUsed) return;
+  if (reviveCount >= 1) return;
   const doRevive = () => {
-    reviveUsed = true;
+    reviveCount++;
     document.getElementById('gameover-screen').classList.add('hidden');
     reviveWithCountdown();
   };
@@ -947,6 +967,10 @@ function resetGame() {
   lastGapCenter = H / 2;
   score = 0;
   trail = [];
+  coffeeItem = null;
+  coffeeRevive = false;
+  coffeeEffect = 0;
+  document.getElementById('coffee-hud').style.display = 'none';
   updateScoreUI();
 }
 
@@ -1145,8 +1169,11 @@ function gameOver() {
   document.getElementById('result-score').textContent = finalScore;
   document.getElementById('result-best').textContent = `최고기록: ${best}`;
   document.getElementById('new-record-badge').classList.toggle('show', isNew);
-  document.getElementById('revive-btn').style.display = reviveUsed ? 'none' : 'flex';
-  document.getElementById('share-revive-btn').style.display = reviveUsed ? 'none' : 'flex';
+  // 첫 부활 전: 광고/공유 버튼 표시
+  document.getElementById('revive-btn').style.display = reviveCount === 0 ? 'flex' : 'none';
+  document.getElementById('share-revive-btn').style.display = reviveCount === 0 ? 'flex' : 'none';
+  // 첫 부활 후: 두 번째 광고 버튼 표시
+  document.getElementById('revive-btn2').style.display = reviveCount === 1 ? 'flex' : 'none';
 
   // 닉네임 입력칸 초기화
   const nickInput = document.getElementById('nickname-input');
@@ -1430,23 +1457,125 @@ function drawDot() {
   ctx.beginPath();
   ctx.ellipse(9, -9, 2, 4, -0.3, 0, Math.PI * 2);
   ctx.fill();
-  // face
-  ctx.fillStyle = '#111827';
-  ctx.beginPath(); ctx.arc(-3, -11, 1.2, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(4, -11, 1.2, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = '#7f1d1d';
+  // face - 카페인 활성 시 눈 빨갛게
+  const eyeColor = coffeeEffect > 0 ? '#ef4444' : '#111827';
+  const eyeGlow = coffeeEffect > 0;
+  if (eyeGlow) {
+    ctx.shadowColor = '#ef4444';
+    ctx.shadowBlur = 6;
+  }
+  ctx.fillStyle = eyeColor;
+  ctx.beginPath(); ctx.arc(-3, -11, eyeGlow ? 1.8 : 1.2, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(4, -11, eyeGlow ? 1.8 : 1.2, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = coffeeEffect > 0 ? '#b91c1c' : '#7f1d1d';
   ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.arc(1, -7, 3, 0, Math.PI); ctx.stroke();
 
   ctx.restore();
 }
+function drawCoffeeItem() {
+  if (!coffeeItem || coffeeItem.collected) return;
+  const { x, y, r } = coffeeItem;
+  const t = performance.now() / 600;
+  ctx.save();
+  ctx.translate(x, y + Math.sin(t) * 4);
+  // 후광
+  ctx.globalAlpha = 0.22 + Math.sin(t * 2) * 0.1;
+  ctx.fillStyle = '#f59e0b';
+  ctx.beginPath(); ctx.arc(0, 0, r + 6, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 1;
+  // 컵 몸통
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath(); ctx.roundRect(-r * 0.6, -r * 0.3, r * 1.2, r * 1.1, 4); ctx.fill();
+  ctx.strokeStyle = '#d97706'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.roundRect(-r * 0.6, -r * 0.3, r * 1.2, r * 1.1, 4); ctx.stroke();
+  // 커피 색
+  ctx.fillStyle = '#92400e';
+  ctx.beginPath(); ctx.roundRect(-r * 0.5, -r * 0.15, r, r * 0.7, 3); ctx.fill();
+  // 손잡이
+  ctx.strokeStyle = '#d97706'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(r * 0.65, r * 0.2, r * 0.28, -0.8, 0.8); ctx.stroke();
+  // 뚜껑
+  ctx.fillStyle = '#d97706';
+  ctx.beginPath(); ctx.roundRect(-r * 0.65, -r * 0.45, r * 1.3, r * 0.22, 3); ctx.fill();
+  // ☕ 텍스트
+  ctx.font = `bold ${r * 0.7}px sans-serif`;
+  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('☕', 0, -r * 0.85);
+  ctx.restore();
+}
+
+function showCoffeeBanner() {
+  const banner = document.getElementById('levelup-banner');
+  const nameEl = document.getElementById('levelup-name');
+  const titleEl = document.getElementById('levelup-title');
+  titleEl.textContent = '☕ 아메리카노 획득!';
+  titleEl.style.color = '#f59e0b';
+  nameEl.textContent = '한 번 더 살아납니다!';
+  nameEl.style.color = '#fbbf24';
+  nameEl.style.textShadow = '0 0 20px #f59e0b';
+  banner.classList.remove('show');
+  void banner.offsetWidth;
+  banner.classList.add('show');
+}
+
 function drawScore() {
-  // Score
   ctx.font = 'bold 13px "Noto Sans KR"';
   ctx.fillStyle = 'rgba(0,255,204,0.3)';
   if (scoreMultiplier > 1) {
     ctx.fillStyle = 'rgba(255,215,0,0.6)';
     ctx.fillText(`×${scoreMultiplier}`, 10, H - 40);
+  }
+
+  // ☕ 카페인 충전 연출 오버레이
+  if (coffeeEffect > 0) {
+    const prog = coffeeEffect / 55; // 1→0
+    const flash = Math.sin(coffeeEffect * 0.45) * 0.5 + 0.5;
+
+    // 빨간/주황 화면 플래시
+    ctx.save();
+    ctx.globalAlpha = prog * 0.32 * flash;
+    ctx.fillStyle = '#ef4444';
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalAlpha = 1;
+    ctx.restore();
+
+    // "카페인 충전!!!" 텍스트
+    const scale = 1 + Math.sin(coffeeEffect * 0.3) * 0.08;
+    ctx.save();
+    ctx.translate(W / 2, H / 2 - 20);
+    ctx.scale(scale, scale);
+    ctx.font = 'bold 36px "Black Han Sans", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    // 그림자
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillText('카페인 충전!!!', 3, 3);
+    // 메인 텍스트 (깜빡이는 색상)
+    ctx.fillStyle = coffeeEffect % 8 < 4 ? '#fbbf24' : '#ffffff';
+    ctx.fillText('카페인 충전!!!', 0, 0);
+
+    // ☕ 이모지 위아래
+    ctx.font = `${28 + Math.sin(coffeeEffect * 0.4) * 4}px sans-serif`;
+    ctx.fillText('☕', -90, 0);
+    ctx.fillText('☕', 90, 0);
+    ctx.restore();
+
+    // 가장자리 빨간 테두리 글로우
+    ctx.save();
+    ctx.globalAlpha = prog * 0.55 * flash;
+    const edgeGrad = ctx.createLinearGradient(0, 0, 0, H);
+    edgeGrad.addColorStop(0, '#ef4444');
+    edgeGrad.addColorStop(0.5, 'transparent');
+    edgeGrad.addColorStop(1, '#ef4444');
+    ctx.fillStyle = edgeGrad;
+    ctx.fillRect(0, 0, 12, H);
+    ctx.fillRect(W - 12, 0, 12, H);
+    ctx.globalAlpha = 1;
+    ctx.restore();
   }
 }
 
@@ -1504,6 +1633,35 @@ function loop() {
 
       walls = walls.filter(w => w.x > -WALL_W - 10);
 
+      // ☕ 아메리카노 아이템 (김과장 레벨 이상, 아직 부활권 없을 때)
+      const curStage = getLevelStage();
+      if (curStage.level >= 3 && !coffeeRevive && !coffeeItem) {
+        // 일정 확률로 스폰 (약 200프레임마다 5% 확률)
+        if (Math.random() < 0.0025) {
+          coffeeItem = { x: W + 20, y: H * 0.3 + Math.random() * H * 0.4, r: 16, collected: false };
+        }
+      }
+      if (coffeeItem && !coffeeItem.collected) {
+        coffeeItem.x -= speed;
+        // 충돌 판정
+        const dx = dot.x - coffeeItem.x;
+        const dy = dot.y - coffeeItem.y;
+        if (Math.sqrt(dx*dx + dy*dy) < DOT_R + coffeeItem.r) {
+          coffeeItem.collected = true;
+          coffeeRevive = true;
+          spawnParticles(coffeeItem.x, coffeeItem.y, '#f59e0b', 28);
+          coffeeEffect = 55; // 약 0.9초 연출
+          document.getElementById('coffee-hud').style.display = 'block';
+        }
+        if (coffeeItem.x < -40) coffeeItem = null;
+      }
+
+      // 카페인 연출 카운트다운
+      if (coffeeEffect > 0) {
+        coffeeEffect--;
+        if (coffeeEffect === 0) showCoffeeBanner();
+      }
+
       // Collision
       const hitCeiling = dot.y - DOT_R < 0;
       const hitFloor = dot.y + DOT_R > H;
@@ -1514,12 +1672,22 @@ function loop() {
         return inX && (inTop || inBot);
       });
 
-      if (hitCeiling || hitFloor || hitWall) {
-        gameOver();
+      if ((hitCeiling || hitFloor || hitWall) && coffeeEffect === 0) {
+        if (coffeeRevive) {
+          // 아메리카노 부활
+          coffeeRevive = false;
+          coffeeItem = null;
+          spawnParticles(dot.x, dot.y, '#f59e0b', 20);
+          document.getElementById('coffee-hud').style.display = 'none';
+          reviveWithCountdown();
+        } else {
+          gameOver();
+        }
       }
     }
 
     drawWalls();
+    drawCoffeeItem();
     drawDot();
     drawScore();
   }
