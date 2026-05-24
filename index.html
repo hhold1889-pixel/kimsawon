@@ -722,15 +722,32 @@ window.addEventListener('resize', setRealViewportHeight);
 window.addEventListener('orientationchange', function(){ setTimeout(setRealViewportHeight, 250); });
 
 // --- BGM ---
+// BGM: mp3 파일을 GitHub repo에 넣고 상대경로 사용 권장
+// 파일을 같은 폴더에 bgm.mp3로 올리면 src='bgm.mp3' 로 변경하세요
 const bgm = new Audio();
-bgm.src = 'https://soundimage.org/wp-content/uploads/2017/03/8-Bit-Techno.mp3';
 bgm.loop = true;
-bgm.volume = 0.45;
+bgm.volume = 0.5;
 bgm.preload = 'auto';
 
+const BGM_URLS = [
+  'bgm.mp3',  // GitHub repo에 직접 올린 파일 (최우선)
+  'https://soundimage.org/wp-content/uploads/2017/03/8-Bit-Techno.mp3'
+];
+
+(function loadBgm(idx) {
+  if (idx >= BGM_URLS.length) return;
+  bgm.src = BGM_URLS[idx];
+  bgm.onerror = () => loadBgm(idx + 1);
+})( 0);
+
 function bgmPlay() {
-  const p = bgm.play();
-  if (p && p.catch) p.catch(() => {});
+  if (bgm.readyState < 2) {
+    bgm.addEventListener('canplaythrough', () => {
+      bgm.play().catch(() => {});
+    }, { once: true });
+  } else {
+    bgm.play().catch(() => {});
+  }
 }
 function bgmStop() {
   bgm.pause();
@@ -769,9 +786,9 @@ let coffeeEffect = 0;      // 카페인 연출 남은 프레임 (0이면 비활�
 const DOT_R = 10;
 let dot = { x: 80, y: H/2, vy: 0 };
 // 조작감 밸런스: 초반 체공시간을 늘리고 낙하를 부드럽게 조정
-const GRAVITY = 0.072;
-const JUMP = -3.0;
-const MAX_FALL = 2.6;
+const GRAVITY = 0.058;
+const JUMP = -2.6;
+const MAX_FALL = 2.1;
 
 // --- Obstacles ---
 let walls = [];
@@ -780,8 +797,8 @@ const WALL_W = 22;
 const BASE_GAP = 230;
 const MIN_GAP = 195;
 let speed = 2.8;
-const BASE_SPEED = 2.8;
-const MAX_SPEED = 11.0;
+const BASE_SPEED = 2.0;
+const MAX_SPEED = 7.5;
 let lastGapCenter = H / 2;
 
 // --- Stars background ---
@@ -1239,7 +1256,7 @@ function getDifficulty() {
   const gap = Math.max(MIN_GAP, gapByLevel[stage.level - 1] || MIN_GAP);
   const spawnByLevel = [62, 54, 48, 43];
   const spawnInterval = Math.max(38, (spawnByLevel[stage.level - 1] || 43) - Math.min(score, 90) * 0.045);
-  const speedByLevel = [2.8, 4.2, 6.0, 8.2];
+  const speedByLevel = [2.0, 3.0, 4.2, 5.8];
   let targetSpeed = (speedByLevel[stage.level - 1] || 5.5) + Math.min(score, 90) * 0.008;
   return { level: stage.level, gap, spawnInterval, targetSpeed: Math.min(MAX_SPEED, targetSpeed), stage };
 }
