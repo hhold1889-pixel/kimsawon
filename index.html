@@ -485,14 +485,15 @@
   }
   .ad-icon { font-size: 16px; }
 
-  /* 코인 수익화 버튼 */
+
+
+  /* 공유 버튼 */
   .revive-btn {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    background: linear-gradient(135deg, #ffd700, #ffaa00);
-    color: #1a1000;
+    color: #ffffff;
     border: none;
     padding: 16px 0;
     width: 280px;
@@ -502,7 +503,7 @@
     cursor: pointer;
     letter-spacing: 1px;
     transition: all 0.15s;
-    box-shadow: 0 4px 20px rgba(255,215,0,0.3);
+    box-shadow: 0 4px 20px rgba(34,197,94,0.3);
   }
   .revive-btn:active { transform: scale(0.95); }
 
@@ -671,20 +672,17 @@
       <div class="lb-list" id="lb-list"></div>
     </div>
 
-    <!-- 수익화: 광고 보고 부활 -->
-    <button class="revive-btn" id="revive-btn">
-      🎬 광고 보고 부활하기
-    </button>
-
     <!-- 친구 공유 후 부활 -->
-    <button class="revive-btn" id="share-revive-btn" style="background: linear-gradient(135deg, #22c55e, #16a34a); margin-top: -4px;">
+    <button class="revive-btn" id="share-revive-btn" style="background: linear-gradient(135deg, #22c55e, #16a34a);">
       👫 친구에게 공유하고 부활하기
     </button>
 
-    <!-- 두 번째 광고 부활 (첫 부활 이후 노출) -->
-    <button class="revive-btn" id="revive-btn2" style="background: linear-gradient(135deg, #a855f7, #7c3aed); margin-top: -4px; display:none;">
-      🎬 한 번 더 광고 보고 부활하기
-    </button>
+    <!-- 카카오 애드핏 배너 -->
+    <ins class="kakao_ad_area" style="display:none;"
+         data-ad-unit="DAN-YktZUleksvwU4dg1"
+         data-ad-width="320"
+         data-ad-height="480"></ins>
+    <script type="text/javascript" src="//t1.kakaocdn.net/kas/static/ba.min.js" async></script>
 
     <div class="btn-row" style="margin-top:12px;">
       <button class="btn-retry" id="retry-btn">👨‍💼 김사원 다시 출근시키기</button>
@@ -897,23 +895,9 @@ document.getElementById('retry-btn').addEventListener('click', e => {
   startCountdown();
 });
 
-document.getElementById('revive-btn').addEventListener('click', e => {
-  e.stopPropagation();
-  if (reviveCount >= 1) return;
-  reviveCount++;
-  alert('🎬 광고 재생 완료!\n잠시 후 부활합니다...');
-  document.getElementById('gameover-screen').classList.add('hidden');
-  reviveWithCountdown();
-});
 
-document.getElementById('revive-btn2').addEventListener('click', e => {
-  e.stopPropagation();
-  if (reviveCount < 1) return;
-  reviveCount++;
-  alert('🎬 광고 재생 완료!\n한 번 더 부활합니다!');
-  document.getElementById('gameover-screen').classList.add('hidden');
-  reviveWithCountdown();
-});
+
+
 
 document.getElementById('share-revive-btn').addEventListener('click', async e => {
   e.stopPropagation();
@@ -938,7 +922,7 @@ document.getElementById('share-revive-btn').addEventListener('click', async e =>
     if (entries.length) topRecord = `${entries[0].name} ${entries[0].score}점`;
   }
   const rankLine = topRecord ? `현재 랭킹 1위 기록: ${topRecord}` : `현재 랭킹 1위 기록: 도전자 없음`;
-  const msg = `화제의 히트작!! "김사원의 출근길"\n김사원을 무사히 출근시켜주세요!\n${rankLine}\n\n플레이하러 가기 👉 https://hhold1889-pixel.github.io/kimsawon/`;
+  const msg = `화제의 히트작!! "김사원의 출근길"\n김사원을 무사히 출근시켜주세요!\n${rankLine}\n\n플레이하러 가기 👉 https://hhold1889-pixel.github.io/`;
   if (navigator.share) {
     navigator.share({ title: '', text: msg }).then(doRevive).catch(() => {});
   } else {
@@ -948,8 +932,6 @@ document.getElementById('share-revive-btn').addEventListener('click', async e =>
     });
   }
 });
-
-
 
 function startCountdown() {
   state = 'countdown';
@@ -1198,11 +1180,10 @@ function gameOver() {
   document.getElementById('result-score').textContent = finalScore;
   document.getElementById('result-best').textContent = `최고기록: ${best}`;
   document.getElementById('new-record-badge').classList.toggle('show', isNew);
-  // 첫 부활 전: 광고/공유 버튼 표시
-  document.getElementById('revive-btn').style.display = reviveCount === 0 ? 'flex' : 'none';
+
+
+  // 공유 버튼: 첫 부활 전에만 표시
   document.getElementById('share-revive-btn').style.display = reviveCount === 0 ? 'flex' : 'none';
-  // 첫 부활 후: 두 번째 광고 버튼 표시
-  document.getElementById('revive-btn2').style.display = reviveCount === 1 ? 'flex' : 'none';
 
   // 닉네임 입력칸 초기화
   const nickInput = document.getElementById('nickname-input');
